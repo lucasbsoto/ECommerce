@@ -50,9 +50,8 @@ O projeto utiliza **SQLite** (armazenando um arquivo `sales.db` na raiz da API) 
   "BillingService": {
     "BaseUrl": "http://servico-faturamento-externo.com", 
     "Endpoint": "/api/billing",                       
-    "EmailHeader": "sistema.ecommerce@suaempresa.com" 
-  },
-  // ...
+    "Email": "sistema.ecommerce@suaempresa.com" 
+  }
 }
 ```
 
@@ -87,8 +86,8 @@ Cria uma nova venda e a coloca em uma fila para processamento de faturamento em 
   "Cliente": {
     "CustomerId": "b5a9147f-8e27-466d-8c11-968393537e22",
     "Name": "Cliente Teste",
-    "Cpf": "12345678901",
-    "Category": "ESPECIAL" // Aceita a string do Enum
+    "Cpf": "123.456.789-01",
+    "Category": "REGULAR" // Aceita a string do Enum
   },
   "Itens": [
     {
