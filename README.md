@@ -38,14 +38,14 @@ O projeto está organizado em camadas de acordo com a Clean Architecture:
 
 ### 1\. Configurar Conexão e URL
 
-O projeto utiliza **SQLite** (armazenando um arquivo `sales.db` na raiz da API) e a configuração é lida do `appsettings.json`.
+O projeto utiliza **SQLite** (armazenando um arquivo `ecommerce.db` na raiz da API) e a configuração é lida do `appsettings.json`.
 
 **`appsettings.json`:**
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Data Source=sales.db" 
+    "DefaultConnection": "Data Source=ecommerce.db" 
   },
   "BillingService": {
     "BaseUrl": "http://servico-faturamento-externo.com", 
@@ -62,7 +62,7 @@ O projeto utiliza **SQLite** (armazenando um arquivo `sales.db` na raiz da API) 
     ```bash
     dotnet run
     ```
-3.  A API e o Background Job serão iniciados, e o arquivo `sales.db` será criado automaticamente.
+3.  A API e o Background Job serão iniciados, e o arquivo `ecommerce.db` será criado automaticamente.
 
 -----
 
@@ -107,6 +107,13 @@ Cria uma nova venda e a coloca em uma fila para processamento de faturamento em 
 | **`GET`** | `/api/Sales` | Lista todas as vendas registradas. |
 | **`GET`** | `/api/Sales/{id}` | Obtém os detalhes de uma venda específica. |
 
+### 3\. Reenfileirar venda para faturamento (Assíncrona)
+
+Reenfileira venda na fila para processamento de faturamento em segundo plano.
+
+| Verbo | Rota | Status de Sucesso |
+| :--- | :--- | :--- |
+| **`POST`** | `/api/Sales/{id}/retry-billing` | `202 Accepted` |
 -----
 
 ## 🧩 Detalhes de Implementação
