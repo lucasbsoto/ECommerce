@@ -1,6 +1,6 @@
 ﻿using ECommerce.Application.DTOs;
-using ECommerce.Application.Services;
-using Microsoft.AspNetCore.Http;
+using ECommerce.Application.DTOs.Responses;
+using ECommerce.Application.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ECommerce.Api.Controllers
@@ -9,9 +9,10 @@ namespace ECommerce.Api.Controllers
     [ApiController]
     public class SalesController : ControllerBase
     {
-        private readonly SaleService _saleService;
+        private readonly ISaleService _saleService;
+        private readonly ILogger<SalesController> _logger;
 
-        public SalesController(SaleService saleService)
+        public SalesController(ISaleService saleService)
         {
             _saleService = saleService;
         }
@@ -21,17 +22,52 @@ namespace ECommerce.Api.Controllers
         {
             if (request is null)
                 return BadRequest("Venda inválida");
-            
-            var sale = await _saleService.ProcessAndSaveSaleAsync(request);
 
-            // Retorna 202 Accepted, indicando que a venda foi aceita e será processada
-            return Accepted(new
+            var result = await _saleService.ProcessAndSaveSaleAsync(request);
+
+            if (result.IsSuccess)
             {
-                Message = "Venda aceita e enviada para processamento assíncrono.",
-                Id = sale.Identifier
-            });
+                return Accepted(new
+                {
+                    Message = "Venda aceita e enviada para processamento assíncrono.",
+                    Id = result.Value?.Identifier
+                });
+            }
+
+            return BadRequest(new { result.Error });
+
         }
 
-        // Adicionar endpoints GET /sales/{id}, GET /sales, PUT /sales/{id} aqui (Diferenciais)
+        [HttpGet("{id:guid}")]
+        public async Task<ActionResult<SaleResponse>> GetSale(Guid id)
+        {
+            var sale = await _saleService.GetByIdSaleAsync(id);
+
+            if (sale == null)
+                return NotFound($"Venda {id} não encontrada.");
+            
+
+            return Ok(sale);
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<SaleResponse>>> GetAllSales()
+        {
+            var sales = await _saleService.GetAllSalesAsync();
+
+            return Ok(sales);
+        }
+
+        [HttpPost("{id:guid}/retry-billing")]
+        public async Task<IActionResult> RetryBilling(Guid id)
+        {
+            var result = await _saleService.RetryBillingAsync(id);
+
+            if (result.IsFailure)
+            {
+                return NotFound(new { Error = result.Error });
+            }
+            return Accepted(new { Id = id, Message = "Retentativa de faturamento enfileirada com sucesso." });
+        }
     }
 }

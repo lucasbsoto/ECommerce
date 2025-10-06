@@ -5,10 +5,10 @@ namespace ECommerce.Application.DTOs
     public class SaleRequest
     {
         [JsonPropertyName("identificador")]
-        public Guid Identifier { get; set; }
+        public Guid? Identifier { get; set; }
 
         [JsonPropertyName("dataVenda")]
-        public DateTime SaleDate { get; set; }
+        public DateTime? SaleDate { get; set; }
 
         [JsonPropertyName("cliente")]
         public CustomerRequest Customer { get; set; }

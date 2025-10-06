@@ -2,6 +2,7 @@
 using ECommerce.Domain._Core.Abstractions;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
+using ECommerce.Infrastructure.ExternalModels.Billing;
 using ECommerce.Infrastructure.ExternalServices.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +27,6 @@ namespace ECommerce.Application.BackgroundJobs
             {
                 var saleId = await _queue.DequeueAsync(stoppingToken);
 
-                // IMPORTANTE: Criar um escopo para DbContext e Scoped Services (como Repositories)
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var billingClient = scope.ServiceProvider.GetRequiredService<IBillingHttpClient>();
@@ -37,19 +37,28 @@ namespace ECommerce.Application.BackgroundJobs
 
                     try
                     {
-                        // 1. Enviar requisição (simulando chamada externa)
-                        await billingClient.SendToBillingAsync(sale);
+                        var summary = new SaleSummaryDto
+                        {
+                            Identifier = sale.Identifier,
+                            Subtotal = sale.TotalAmount, 
+                            DiscountValue = sale.DiscountAmount,
+                            TotalValue = sale.FinalAmount,
+                            Items = sale.Items.Select(i => new ItemSummaryDto
+                            {
+                                Quantity = i.Quantity,
+                                UnitPrice = i.UnitPrice
+                            }).ToList()
+                        };
 
-                        // 2. Atualizar status para CONCLUIDO
+                        await billingClient.SendToBillingAsync(summary);
+
                         sale.MarkAsDone();
                         await saleRepository.UpdateAsync(sale);
                     }
                     catch (Exception)
                     {
-                        // Lidar com indisponibilidade (logar, tentar novamente mais tarde, etc.)
                         sale.MarkAsFailed();
                         await saleRepository.UpdateAsync(sale);
-                        // Opcional: Re-enfileirar com delay
                     }
                 }
             }

@@ -4,7 +4,7 @@
     {
         Task AddAsync(T entity);
         Task<T?> GetByIdAsync(Guid id);
-        Task<IEnumerable<T>> GetAllAsync();
+        IQueryable<T> GetAll();
         Task UpdateAsync(T entity); // Necessário para alterar o status na Fase 2
     }
 }

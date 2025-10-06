@@ -1,43 +1,83 @@
 ﻿using ECommerce.Application.DTOs;
+using ECommerce.Application.DTOs.Responses;
+using ECommerce.Application.Mappers;
+using ECommerce.Application.Models.Filters;
 using ECommerce.Application.Services.Abstractions;
+using ECommerce.Domain._Core;
 using ECommerce.Domain._Core.Abstractions;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
 using ECommerce.Domain.Rules.CustomerDiscount;
 using ECommerce.Domain.Rules.CustomerDiscount.Abstractions;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Application.Services
 {
-    public class SaleService
+    public class SaleService : ISaleService
     {
         private readonly IRepository<Sale> _saleRepository;
-        // Interface do serviço de background (para a Fase 2)
         private readonly IBillingQueueService _billingQueue;
+        private readonly ICustomerService _customerService;
+        private readonly IValidator<SaleRequest> _saleValidator;
 
-        public SaleService(IRepository<Sale> saleRepository, IBillingQueueService billingQueue)
+        public SaleService(IRepository<Sale> saleRepository, IBillingQueueService billingQueue, ICustomerService customerService, IValidator<SaleRequest> saleValidator)
         {
             _saleRepository = saleRepository;
+            _saleValidator = saleValidator;
             _billingQueue = billingQueue;
+            _customerService = customerService;
         }
 
-        public async Task<Sale> ProcessAndSaveSaleAsync(SaleRequest request)
+        public async Task<Result<SaleResponse>> ProcessAndSaveSaleAsync(SaleRequest request)
         {
-            // 1. Mapear DTO para Entidade (simplificado, AutoMapper seria ideal)
-            var sale = MapToSale(request);
+            var validationResult = await _saleValidator.ValidateAsync(request);
 
-            // 2. Selecionar a Estratégia de Desconto (o ponto chave do Strategy Pattern)
-            IDiscountStrategy strategy = SelectDiscountStrategy(sale.Customer.Category);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join(" | ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Result<SaleResponse>.Failure($"Falha na validação dos dados de entrada: {errors}");
+            }
 
-            // 3. Processar Valores (Delega para a entidade)
-            sale.ProcessValues(strategy);
+            var filter = new CustomerFilter(request.Customer.CustomerId, request.Customer.Name, request.Customer.Cpf, request.Customer.Category);
+            var customer = await _customerService.GetCustomerByFilters(filter);
+            var sale = customer is not null ? request.MapToSale(customer) : request.MapToSale();
 
-            // 4. Persistir a Venda (Fase 1)
-            await _saleRepository.AddAsync(sale);
+            try
+            {
+                IDiscountStrategy strategy = SelectDiscountStrategy(sale.Customer.Category);
+                sale.ProcessValues(strategy);
 
-            // 5. Enfileirar para Faturamento Assíncrono (Fase 2)
-            _billingQueue.Enqueue(sale.Identifier);
+                await _saleRepository.AddAsync(sale);
+                await _billingQueue.Enqueue(sale.Identifier);
 
-            return sale;
+                return Result<SaleResponse>.Success(sale.MapToResponse());
+            }
+            catch (Exception ex)
+            {
+                return Result<SaleResponse>.Failure($"Erro ao processar a venda: {ex.InnerException?.Message ?? ex.Message}");
+            }
+        }
+
+        public async Task<SaleResponse?> GetByIdSaleAsync(Guid id)
+        {
+            var sale = await _saleRepository.GetByIdAsync(id);
+
+            return sale == null ? null : sale.MapToResponse();
+        }
+
+        public async Task<IEnumerable<SaleResponse>> GetAllSalesAsync()
+        {
+            var sales = _saleRepository.GetAll();
+
+            return await sales.Select(x => x.MapToResponse()).ToListAsync();
+        }
+
+        public async Task<Result> RetryBillingAsync(Guid id)
+        {
+            await _billingQueue.Enqueue(id);
+
+            return Result.Success();
         }
 
         private IDiscountStrategy SelectDiscountStrategy(CustomerCategory category)
@@ -47,26 +87,8 @@ namespace ECommerce.Application.Services
                 CustomerCategory.REGULAR => new RegularDiscountStrategy(),
                 CustomerCategory.PREMIUM => new PremiumDiscountStrategy(),
                 CustomerCategory.VIP => new VipDiscountStrategy(),
-                _ => new NoDiscountStrategy(), // Implemente esta como 0m
+                _ => new NoDiscountStrategy(),
             };
-        }
-
-        // Implementar o método MapToSale...
-        private Sale MapToSale(SaleRequest request)
-        {
-            var customer = new Customer(request.Customer.CustomerId, 
-                                        request.Customer.Name, 
-                                        request.Customer.Cpf, 
-                                        request.Customer.Category);
-
-            var sale = new Sale(request.Identifier, 
-                                request.SaleDate, 
-                                request.Customer.CustomerId, 
-                                customer,
-                                request.Itens.Select(i => new SaleItem(i.ProductId, i.Description, i.Quantity, i.UnitPrice, request.Identifier))
-                                             .ToList());
-
-            return sale;
         }
     }
 }

@@ -1,11 +1,10 @@
-﻿using ECommerce.Domain.Entities;
+﻿using ECommerce.Domain._Core;
+using ECommerce.Infrastructure.ExternalModels.Billing;
 
 namespace ECommerce.Infrastructure.ExternalServices.Abstractions
 {
-    // Define o contrato de comunicação para o serviço de faturamento
     public interface IBillingHttpClient
     {
-        // Recebe a venda para criar o sumário e enviá-lo.
-        Task SendToBillingAsync(Sale sale);
+        Task<Result> SendToBillingAsync(SaleSummaryDto sale);
     }
 }

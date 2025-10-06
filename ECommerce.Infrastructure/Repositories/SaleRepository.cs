@@ -2,7 +2,6 @@
 using ECommerce.Domain.Entities;
 using ECommerce.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System;
 
 namespace ECommerce.Infrastructure.Repositories
 {
@@ -18,7 +17,6 @@ namespace ECommerce.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        // Implementar GetByIdAsync, GetAllAsync e UpdateAsync...
         public async Task UpdateAsync(Sale entity)
         {
             _context.Sales.Update(entity);
@@ -33,11 +31,12 @@ namespace ECommerce.Infrastructure.Repositories
                 .FirstOrDefaultAsync(s => s.Identifier == id);
         }
 
-        public Task<IEnumerable<Sale>> GetAllAsync()
+        public IQueryable<Sale> GetAll()
         {
-            throw new NotImplementedException();
+            return _context.Sales
+                .Include(s => s.Customer)
+                .Include(s => s.Items)
+                .AsNoTracking();
         }
-
-        // ...
     }
 }

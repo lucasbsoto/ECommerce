@@ -1,20 +1,16 @@
 ﻿using ECommerce.Domain.Enums;
 using System.Text.Json.Serialization;
 
-namespace ECommerce.Application.DTOs
+namespace ECommerce.Application.DTOs.Responses
 {
-    public class CustomerRequest
+    public class CustomerResponse
     {
-        [JsonPropertyName("clienteId")]
         public Guid CustomerId { get; set; }
 
-        [JsonPropertyName("nome")]
         public string Name { get; set; }
 
-        [JsonPropertyName("cpf")]
         public string Cpf { get; set; }
 
-        [JsonPropertyName("categoria")]
         public CustomerCategory Category { get; set; }
     }
 }
